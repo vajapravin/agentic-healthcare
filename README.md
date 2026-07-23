@@ -28,16 +28,51 @@ The application uses a graph-based multi-agent architecture (via LangGraph) to e
 * **Temporal Awareness**: Injects system date and time into the context window, preventing common LLM hallucinations regarding relative terms like "tomorrow" or "next week."
 * **Fully Containerized**: Backend runs entirely inside Docker, exposing a clean REST API via FastAPI and Uvicorn.
 
+# Microsoft Presidio Integration for Local PII Redaction
+
+This project integrates **Microsoft Presidio** to ensure robust, local data privacy and protection of Protected Health Information (PII) before any user input is processed by external LLM APIs.
+
+## 🔒 How PII Redaction Works
+
+1. **Interception at Entry:** Every incoming user message hits the local safety layer (`safety_agent`) before reaching the Coordinator or specialized agents.
+2. **Local Analysis & Anonymization:** 
+   * Presidio Analyzer scans the text locally (leveraging spaCy models) to identify sensitive entities such as `PERSON`, `PHONE_NUMBER`, and `EMAIL_ADDRESS`.
+   * Presidio Anonymizer replaces the detected entities with standardized placeholder tokens (e.g., `<PERSON>`).
+3. **External API Safety:** Only the fully scrubbed text is passed into external LLM context windows, preventing raw sensitive data from leaking to third-party providers.
+
+---
+
+## 🔑 Session-Based Token Mapping
+
+To balance strict data privacy with functional backend persistence (such as writing patient names to Supabase), the system utilizes session-based token mapping:
+
+* **State Tracking:** The safety node automatically populates and tracks a `pii_mapping` dictionary within the LangGraph thread state (e.g., mapping `{"<PERSON>": "John Smith"}`).
+* **Secure Backend Unmasking:** When internal backend tools or trusted agent nodes (like the intake agent) need to commit data to the database, they resolve the placeholder token against the session state, ensuring real, unmasked data is safely stored locally without ever exposing it upstream to the LLM.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
 * Docker and Docker Compose installed.
-* An active Supabase project with `patients` and `appointments` tables configured.
+* An active Supabase project with required tables (`patients`, `appointments`) configured.
 * An OpenAI API key.
 
-### Installation
+### Installation & Setup
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/vajapravin/agentic-healthcare.git](https://github.com/vajapravin/agentic-healthcare.git)
+   git clone https://github.com/vajapravin/agentic-healthcare.git
    cd agentic-healthcare
+   ```
+
+2. **Configure Environment Variables:**
+   Create a `.env` based on .env.example
+
+3. **Build and Run with Docker Compose:**
+   ```bash
+   docker-compose up --build -d
+   ```
+
+4. **Verify the API:**
+   Once running, the FastAPI backend will be available at `http://localhost:8000`. You can access the interactive Swagger documentation to test endpoints and chat threads at:
+   ```text
+   http://localhost:8000/docs
