@@ -86,3 +86,36 @@ def fetch_available_slots(department: str, date: str) -> str:
     except Exception as e:
         print(f"\n--- DATABASE ERROR --- \n{str(e)}\n----------------------\n")
         return f"Error fetching slots: {str(e)}"
+
+@tool
+def cancel_appointment(patient_id: int, department: str, date: str) -> str:
+    """
+    Cancels an existing appointment for a specific patient, department, and date.
+    Date MUST be in YYYY-MM-DD format.
+    """
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        db = SessionLocal()
+        
+        # Find the specific appointment
+        appointment = db.query(Appointment).filter(
+            Appointment.patient_id == patient_id,
+            Appointment.department == department,
+            cast(Appointment.scheduled_time, Date) == target_date
+        ).first()
+        
+        if not appointment:
+            db.close()
+            return f"No appointment found for Patient ID {patient_id} in {department} on {date}."
+        
+        # Delete the appointment
+        db.delete(appointment)
+        db.commit()
+        db.close()
+        
+        return f"Successfully canceled the {department} appointment for Patient ID {patient_id} on {date}."
+        
+    except Exception as e:
+        db.rollback()
+        print(f"\n--- DATABASE ERROR --- \n{str(e)}\n----------------------\n")
+        return f"Error canceling appointment: {str(e)}"
