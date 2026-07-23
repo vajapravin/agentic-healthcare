@@ -1,7 +1,8 @@
-from langchain_core.tools import tool
+from langchain.tools import tool
+from sqlalchemy import cast, Date
+from datetime import datetime, timedelta
 from core.db import SessionLocal
 from core.models.appointment import Appointment
-from datetime import datetime
 
 @tool
 def book_appointment(patient_id: int, department: str, scheduled_time: str) -> str:
@@ -40,3 +41,48 @@ def book_appointment(patient_id: int, department: str, scheduled_time: str) -> s
     finally:
         # Always close the connection to prevent database lockups
         db.close()
+
+@tool
+def fetch_available_slots(department: str, date: str) -> str:
+    """
+    Retrieves available appointment times for a specific department on a given date.
+    Date MUST be in YYYY-MM-DD format.
+    """
+    try:
+        # 1. Parse the date string into a Python date object
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        
+        db = SessionLocal()
+        
+        # 2. Query Supabase for all appointments in this department on this specific day
+        booked_appointments = db.query(Appointment.scheduled_time).filter(
+            Appointment.department == department,
+            cast(Appointment.scheduled_time, Date) == target_date
+        ).all()
+        
+        db.close()
+
+        # Extract just the datetime objects from the SQL result
+        print(f"Booked appointments for {department} on {date}: {booked_appointments}")
+        booked_times = [app[0] for app in booked_appointments if app[0] is not None]
+
+        # 3. Generate standard hourly slots (9:00 AM to 4:00 PM)
+        available_slots = []
+        for hour in range(9, 17):
+            slot_time = datetime.combine(target_date, datetime.min.time()) + timedelta(hours=hour)
+            
+            # If this time isn't in the database, it is available
+            if slot_time not in booked_times:
+                available_slots.append(slot_time.strftime("%Y-%m-%d %H:%M:%S"))
+
+        if not available_slots:
+            return f"No available slots for {department} on {date}."
+
+        # 4. Return the next 3 available slots to keep the LLM response concise
+        return f"Available slots for {department} on {date}: " + ", ".join(available_slots[:3])
+
+    except ValueError:
+        return "Error: Invalid date format. Please use YYYY-MM-DD."
+    except Exception as e:
+        print(f"\n--- DATABASE ERROR --- \n{str(e)}\n----------------------\n")
+        return f"Error fetching slots: {str(e)}"

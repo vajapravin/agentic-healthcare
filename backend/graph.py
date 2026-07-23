@@ -5,7 +5,7 @@ from state import AgentState
 from agents.coordinator import coordinator_node
 from agents.routing import route_next_step
 from agents.appointment import appointment_node
-from tools.appointments import book_appointment
+from tools.appointments import book_appointment, fetch_available_slots
 
 # --- Build the Graph ---
 workflow = StateGraph(AgentState)
@@ -15,7 +15,7 @@ workflow.add_node("coordinator", coordinator_node)
 workflow.add_node("appointment_agent", appointment_node)
 
 # Set the entry point
-workflow.add_node("tools", ToolNode([book_appointment]))
+workflow.add_node("tools", ToolNode([book_appointment, fetch_available_slots]))
 
 # Add Conditional Edges from the Coordinator
 workflow.set_entry_point("coordinator")
