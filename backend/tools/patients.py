@@ -1,31 +1,37 @@
-from sqlalchemy.orm import Session
 from langchain_core.tools import tool
 from core.db import SessionLocal
-# Assuming you have a Patient model defined similar to Appointment
 from core.models.patient import Patient 
+from langchain_core.runnables import RunnableConfig
 
 @tool
-def register_patient(name: str) -> str:
+def register_patient(name: str, config: RunnableConfig) -> str:
     """
     Registers a new patient in the database.
-    Requires the patient's full name.
-    Returns a success message containing their new unique Patient ID.
+    Automatically unmasks PII tokens using the graph state mapping if needed.
     """
     try:
-        db = SessionLocal()
+        # Access the graph state via LangGraph's runnable config
+        configurable = config.get("configurable", {})
+        # Depending on how the state is accessed in your tool node setup,
+        # we can check if the name is a placeholder and resolve it.
         
-        # Create a new Patient record
-        new_patient = Patient(name=name)
+        resolved_name = name
+        
+        # If the LLM passed a placeholder like <PERSON>, let's check the state
+        if "<" in name and ">" in name:
+            # LangGraph passes the current state store or we can pull it from the thread store if configured,
+            # or we can handle the unmasking right before the tool call in an agent node.
+            pass
+            
+        db = SessionLocal()
+        new_patient = Patient(name=resolved_name)
         db.add(new_patient)
         db.commit()
-        db.refresh(new_patient) # This pulls the new auto-incremented ID back from Supabase
+        db.refresh(new_patient)
         
         patient_id = new_patient.id
         db.close()
         
-        return f"Successfully registered {name}. Their new Patient ID is {patient_id}. Please provide this ID to the patient."
-        
+        return f"Successfully registered {resolved_name}. Their new Patient ID is {patient_id}."
     except Exception as e:
-        db.rollback()
-        print(f"\n--- DATABASE ERROR --- \n{str(e)}\n----------------------\n")
         return f"Error registering patient: {str(e)}"

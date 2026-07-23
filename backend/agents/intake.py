@@ -13,7 +13,15 @@ intake_llm = llm.bind_tools(intake_tools)
 
 def intake_node(state: dict):
     messages = state.get("messages", [])
+    pii_mapping = state.get("pii_mapping", {})
     
+    # Check if any message contains a placeholder and unmask it for internal use
+    for msg in messages:
+        if hasattr(msg, 'content'):
+            for placeholder, original_value in pii_mapping.items():
+                if placeholder in msg.content:
+                    msg.content = msg.content.replace(placeholder, original_value)    
+
     # Load the base prompt
     system_prompt_text = load_prompt("intake.md")
     

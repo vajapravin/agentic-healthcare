@@ -13,6 +13,9 @@ class AgentState(TypedDict):
     
     # Identifies the active administrative goal (e.g., "schedule_appointment", "verify_insurance")
     current_task: Optional[str]
+
+    # Stores mappings like {"<PERSON>": "Sarah Connor"}
+    pii_mapping: Dict[str, str]
     
     # Tracks the progress status of the current task
     task_status: str # Options: "pending", "in_progress", "awaiting_input", "complete", "error"

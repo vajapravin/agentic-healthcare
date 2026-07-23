@@ -1,3 +1,4 @@
+from agents.safety import safety_node
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.memory import MemorySaver
@@ -13,13 +14,16 @@ from tools.patients import register_patient
 workflow = StateGraph(AgentState)
 
 # Add Nodes
+workflow.add_node("safety_agent", safety_node)
 workflow.add_node("coordinator", coordinator_node)
 workflow.add_node("appointment_agent", appointment_node)
 workflow.add_node("intake_agent", intake_node)
 workflow.add_node("tools", ToolNode([book_appointment, fetch_available_slots, cancel_appointment, register_patient]))
 
 # Set the entry point
-workflow.set_entry_point("coordinator")
+workflow.set_entry_point("safety_agent")
+
+workflow.add_edge("safety_agent", "coordinator")
 
 # Add Conditional Edges from the Coordinator
 # FIXED: Added intake_agent to the routing map
@@ -29,6 +33,7 @@ workflow.add_conditional_edges(
     {
         "appointment_agent": "appointment_agent",
         "intake_agent": "intake_agent",
+        "safety_agent": "safety_agent",
         "end": END
     }
 )
