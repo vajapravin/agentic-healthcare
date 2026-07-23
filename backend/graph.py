@@ -1,5 +1,6 @@
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.checkpoint.memory import MemorySaver
 from state import AgentState
 from agents.coordinator import coordinator_node
 from agents.routing import route_next_step
@@ -38,5 +39,8 @@ workflow.add_conditional_edges(
 # For now, route all specified agents back to END to finish the loop
 workflow.add_edge("tools", "appointment_agent")
 
+# Add a Memory Saver to the Graph
+memory = MemorySaver()
+
 # Compile the Graph
-app_graph = workflow.compile()
+app_graph = workflow.compile(checkpointer=memory)

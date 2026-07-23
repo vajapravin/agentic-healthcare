@@ -17,6 +17,7 @@ app = FastAPI(title="Agentic Healthcare API")
 # Define the expected input from the frontend
 class ChatRequest(BaseModel):
     message: str
+    thread_id: str = "default_thread_1" # Optional: default thread ID if not provided
 
 @app.get("/")
 def health_check():
@@ -37,16 +38,18 @@ def chat_endpoint(request: ChatRequest):
 
     # 2. Run the LangGraph state machine
     # This will trigger the Coordinator, which will then trigger the routing
-    result = app_graph.invoke(initial_state)
+    config = {"configurable": {"thread_id": request.thread_id}}
+    result = app_graph.invoke(initial_state, config=config)
     
     # 3. Extract the latest AI message from the state
     # result["messages"] is a list of the whole conversation, so we grab the last item [-1]
     final_ai_message = result["messages"][-1].content
     
     # 4. Extract the routing decision
-    current_task = result.get("current_task", "end")
+    current_task = result.get("current_task", "unknown")
     
     return {
         "response": final_ai_message,
-        "current_task": current_task
+        "current_task": current_task,
+        "thread_id": request.thread_id
     }
