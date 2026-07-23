@@ -1,0 +1,28 @@
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage
+from env import LLM_MODEL_NAME
+from core.utils import load_prompt
+from tools.appointments import book_appointment
+
+# 1. Initialize the LLM
+llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0)
+
+# 2. Bind the tool to the LLM
+appointment_tools = [book_appointment]
+appointment_llm = llm.bind_tools(appointment_tools)
+
+# 3. Define the exact function name expected by graph.py
+def appointment_node(state: dict) -> dict:
+    print("--- EXEC: Appointment Agent ---")
+    
+    system_prompt_text = load_prompt("appointment.md")
+    messages = state.get("messages", [])
+    
+    invocation_messages = [SystemMessage(content=system_prompt_text)] + messages
+    
+    # Invoke the LLM
+    response = appointment_llm.invoke(invocation_messages)
+    
+    return {
+        "messages": [response]
+    }

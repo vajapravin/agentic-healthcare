@@ -9,7 +9,7 @@ class Appointment(Base):
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
     department = Column(String, index=True)
-    schedule_time = Column(DateTime)
+    scheduled_time = Column(DateTime)
     status = Column(String, default="booked")
     created_at = Column(DateTime, default=datetime.utcnow)
 
