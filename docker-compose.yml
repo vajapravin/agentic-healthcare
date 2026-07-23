@@ -1,4 +1,19 @@
 services:
+  db:
+    image: postgres:15
+    container_name: agentic-healthcare-db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: securepassword
+      POSTGRES_DB: healthcare_db
+    ports:
+      - "5432:5432"
+    volumes:
+      # This line is the magic that satisfies RULE-4. 
+      # It persists the database files on your host machine.
+      - pgdata:/var/lib/postgresql/data
+
   backend:
     build:
       context: ./backend
@@ -9,6 +24,8 @@ services:
       - .env
     volumes:
       - ./backend:/app  # Enables hot-reloading during development
+    depends_on:
+      - db
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
@@ -27,3 +44,6 @@ services:
       - ./frontend:/app # Enables hot-reloading during development
     # command: streamlit run app.py --server.port=8501 --server.address=0.0.0.0
     command: python -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+
+volumes:
+  pgdata:
