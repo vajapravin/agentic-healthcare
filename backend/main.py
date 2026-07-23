@@ -3,6 +3,13 @@ from pydantic import BaseModel
 from graph import app_graph
 from langchain_core.messages import HumanMessage
 
+# Import engine and the models package
+from core.db import engine
+from core import models
+
+# Create tables if they don't exist
+models.Base.metadata.create_all(bind=engine)
+
 # Import the compiled graph we built in the previous steps
 # Adjust the import path if your workflow.py is located elsewhere
 app = FastAPI(title="Agentic Healthcare API")
