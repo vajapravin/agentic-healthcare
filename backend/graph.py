@@ -7,7 +7,7 @@ from agents.coordinator import coordinator_node
 from agents.routing import route_next_step
 from agents.appointment import appointment_node
 from agents.intake import intake_node
-from tools.appointments import book_appointment, fetch_available_slots, cancel_appointment
+from tools.appointments import book_appointment, fetch_available_slots, cancel_appointment, reschedule_appointment
 from tools.patients import register_patient
 
 # --- Build the Graph ---
@@ -18,7 +18,7 @@ workflow.add_node("safety_agent", safety_node)
 workflow.add_node("coordinator", coordinator_node)
 workflow.add_node("appointment_agent", appointment_node)
 workflow.add_node("intake_agent", intake_node)
-workflow.add_node("tools", ToolNode([book_appointment, fetch_available_slots, cancel_appointment, register_patient]))
+workflow.add_node("tools", ToolNode([book_appointment, fetch_available_slots, cancel_appointment, reschedule_appointment, register_patient]))
 
 # Set the entry point
 workflow.set_entry_point("safety_agent")

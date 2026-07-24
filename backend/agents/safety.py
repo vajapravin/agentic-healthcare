@@ -5,6 +5,8 @@ from langchain_core.messages import HumanMessage
 analyzer = AnalyzerEngine()
 anonymizer = AnonymizerEngine()
 
+EMERGENCY_KEYWORDS = ["chest pain", "suicide", "bleed", "emergency", "unconscious", "severe allergic reaction"]
+
 def safety_node(state: dict):
     messages = state.get("messages", [])
     if not messages:
@@ -53,3 +55,19 @@ def safety_node(state: dict):
         "current_task": "safety_agent",
         "pii_mapping": pii_mapping
     }
+
+
+def check_for_escalation(text: str) -> bool:
+    """
+    Scans user input for emergency or critical indicators requiring human intervention.
+    """
+    lower_text = text.lower()
+    return any(keyword in lower_text for keyword in EMERGENCY_KEYWORDS)
+
+
+def create_follow_up_task(patient_id: int, task_description: str) -> str:
+    """
+    Simulates creating a follow-up task or confirmation log for administrative staff.
+    """
+    # In production, this would write to a tasks table in Supabase
+    return f"Follow-up task created for Patient ID {patient_id}: '{task_description}'."

@@ -119,3 +119,26 @@ def cancel_appointment(patient_id: int, department: str, date: str) -> str:
         db.rollback()
         print(f"\n--- DATABASE ERROR --- \n{str(e)}\n----------------------\n")
         return f"Error canceling appointment: {str(e)}"
+
+@tool
+def reschedule_appointment(appointment_id: int, new_slot: str) -> str:
+    """
+    Directly updates an existing appointment to a new date and time. 
+    Use this immediately when a user asks to reschedule, without checking available slots.
+    """
+    db = SessionLocal()
+    try:
+        appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()
+        if not appointment:
+            return f"Error: No appointment found with ID {appointment_id}."
+        
+        # Parse and update
+        appointment.appointment_time = datetime.fromisoformat(new_slot)
+        db.commit()
+        
+        return f"Successfully rescheduled appointment ID {appointment_id} to {new_slot}."
+    except Exception as e:
+        db.rollback()
+        return f"Error rescheduling appointment: {str(e)}"
+    finally:
+        db.close()

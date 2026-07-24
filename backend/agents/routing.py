@@ -12,21 +12,26 @@ def route_next_step(state: dict) -> str:
     
     # Grab the text and convert to lowercase to avoid case-sensitivity bugs
     last_message = messages[-1].content.lower()
+
+    print(f"--- route_next_step::LAST MESSAGE: {last_message} ---")
     
     # ATTEMPT 1: Strict XML Tag Extraction
     match = re.search(r"<route>(.*?)</route>", last_message)
     if match:
         destination = match.group(1).strip()
-        if destination in ["appointment_agent", "intake_agent"]:
+        print(f"--- ROUTING: Extracted route -> {destination} ---")
+        if destination in ["appointment_agent", "intake_agent", "safety_agent"]:
             return destination
             
-    # ATTEMPT 2: Fallback Keyword Matching
-    # If the LLM forgot the tag but mentioned the intent, route it anyway.
-    if "intake_agent" in last_message or "register" in last_message or "intake" in last_message:
-        return "intake_agent"
-    
-    if "appointment_agent" in last_message or "schedule" in last_message or "book" in last_message or "cancel" in last_message:
-        return "appointment_agent"
+    # ATTEMPT 2: Fallback Keyword Matching on the string (using last_message)
+    if "appointment" in last_message:
+        destination = "appointment_agent"
+    elif "intake" in last_message or "register" in last_message or "patient" in last_message:
+        destination = "intake_agent"
+    elif "emergency" in last_message or "safety" in last_message:
+        destination = "safety_agent"
+    else:
+        destination = "end"
         
-    # If all else fails, end the graph
-    return "end"
+    print(f"--- ROUTING FINAL DECISION: '{destination}' ---")
+    return destination

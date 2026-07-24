@@ -4,8 +4,8 @@ from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, AIMessage
 
+from core.llm import llm
 from core.utils import load_prompt  # Importing the shared utility
-from env import LLM_MODEL_NAME  # Importing the validated variable
 
 # 1. Define the Strict Output Schema using Pydantic
 class CoordinatorOutput(BaseModel):
@@ -23,11 +23,6 @@ class CoordinatorOutput(BaseModel):
         description="The precise name of the next agent to route to. Choose 'end' if the workflow is complete or waiting for user input."
     )
 
-# 2. Initialize the LLM
-# We use temperature=0 because the Coordinator needs to make strict, deterministic 
-# routing decisions, not creative guesses.
-# (Ensure OPENAI_API_KEY is loaded in your .env file)
-llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0)
 structured_llm = llm.with_structured_output(CoordinatorOutput)
 
 def coordinator_node(state: dict) -> dict:
@@ -53,8 +48,6 @@ def coordinator_node(state: dict) -> dict:
     # 4. Invoke the LLM
     ai_response = AIMessage(content=output.message_to_user)
 
-    print(f" -> Routing Decision: {output.next_node}")
-    
     # 5. Return the state update
     # Because of our reducer in state.py (Annotated[list, add_messages]),
     # returning a dict with "messages" will append this new response to the history.

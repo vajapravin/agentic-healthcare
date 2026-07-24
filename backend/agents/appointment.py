@@ -1,14 +1,11 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
-from env import LLM_MODEL_NAME
 from core.utils import load_prompt
-from tools.appointments import book_appointment, fetch_available_slots, cancel_appointment
-
-# 1. Initialize the LLM
-llm = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0)
+from core.llm import llm
+from tools.appointments import book_appointment, fetch_available_slots, cancel_appointment, reschedule_appointment
 
 # 2. Bind the tool to the LLM
-appointment_tools = [book_appointment, fetch_available_slots, cancel_appointment]
+appointment_tools = [book_appointment, fetch_available_slots, cancel_appointment, reschedule_appointment]
 appointment_llm = llm.bind_tools(appointment_tools)
 
 # 3. Define the exact function name expected by graph.py
