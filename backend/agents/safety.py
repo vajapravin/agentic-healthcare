@@ -1,9 +1,7 @@
 from presidio_analyzer import AnalyzerEngine
-from presidio_anonymizer import AnonymizerEngine
 from langchain_core.messages import HumanMessage
 
 analyzer = AnalyzerEngine()
-anonymizer = AnonymizerEngine()
 
 EMERGENCY_KEYWORDS = ["chest pain", "suicide", "bleed", "emergency", "unconscious", "severe allergic reaction"]
 
@@ -13,40 +11,56 @@ def safety_node(state: dict):
         return {"messages": messages}
     
     last_message = messages[-1]
-    
-    # Grab existing mapping or initialize a new one for this thread
     pii_mapping = state.get("pii_mapping", {})
     
     if hasattr(last_message, 'content') and last_message.type == "human":
         original_text = last_message.content
         
-        # Analyze for PII
+        # 1. Analyze for PII
         results = analyzer.analyze(
             text=original_text, 
             entities=["PERSON", "PHONE_NUMBER", "EMAIL_ADDRESS"], 
             language='en'
         )
         
-        # Anonymize text
-        anonymized_result = anonymizer.anonymize(
-            text=original_text, 
-            analyzer_results=results
-        )
+        # 2. Sort results by start index
+        sorted_results = sorted(results, key=lambda x: x.start)
+        merged_results = []
         
-        scrubbed_text = anonymized_result.text
+        # 3. Merge adjacent split name spans (e.g., merging "Rakesh" and "Bahl")
+        for current in sorted_results:
+            if merged_results and merged_results[-1].entity_type == "PERSON" and current.entity_type == "PERSON":
+                prev = merged_results[-1]
+                # If they are separated by just a space or punctuation, merge them
+                if original_text[prev.end:current.start].strip() == "":
+                    prev.end = current.end
+                    prev.score = max(prev.score, current.score)
+                    continue
+            merged_results.append(current)
+
+        # 4. Perform direct replacement in reverse order (highest index first) to prevent index shifting
+        scrubbed_text = original_text
+        sorted_items = sorted(merged_results, key=lambda x: x.start, reverse=True)
         
-        # Map any newly generated placeholder back to the original text snippet
-        # Presidio generates items like <PERSON>. Let's track them.
-        for item in anonymized_result.items:
+        entity_counters = {}
+        for item in sorted_items:
             entity_type = item.entity_type
-            # Extract the substring from the original text that matched
             start = item.start
             end = item.end
             original_value = original_text[start:end]
             
-            # Create the standard placeholder token Presidio uses
-            placeholder = f"<{entity_type}>"
+            # Skip empty spans just in case
+            if start == end:
+                continue
+            
+            count = entity_counters.get(entity_type, 0) + 1
+            entity_counters[entity_type] = count
+            
+            placeholder = f"<{entity_type}_{count}>"
             pii_mapping[placeholder] = original_value
+            
+            # Directly replace the exact character span
+            scrubbed_text = scrubbed_text[:start] + placeholder + scrubbed_text[end:]
             
         messages[-1] = HumanMessage(content=scrubbed_text)
         
@@ -58,16 +72,9 @@ def safety_node(state: dict):
 
 
 def check_for_escalation(text: str) -> bool:
-    """
-    Scans user input for emergency or critical indicators requiring human intervention.
-    """
     lower_text = text.lower()
     return any(keyword in lower_text for keyword in EMERGENCY_KEYWORDS)
 
 
 def create_follow_up_task(patient_id: int, task_description: str) -> str:
-    """
-    Simulates creating a follow-up task or confirmation log for administrative staff.
-    """
-    # In production, this would write to a tasks table in Supabase
     return f"Follow-up task created for Patient ID {patient_id}: '{task_description}'."

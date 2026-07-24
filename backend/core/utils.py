@@ -1,5 +1,8 @@
 import os
 
+# Keep only the last 6 messages to prevent token explosion
+MAX_HISTORY = 6
+
 def load_prompt(filename: str) -> str:
     """
     Safely loads a system prompt from the prompts directory.
@@ -14,3 +17,10 @@ def load_prompt(filename: str) -> str:
             return file.read()
     except FileNotFoundError:
         raise FileNotFoundError(f"🚨 System prompt '{filename}' not found at {filepath}")
+
+def trim_messages(state: dict):
+    messages = state.get("messages", [])
+    if len(messages) > MAX_HISTORY:
+        # Keep system message if present, plus the most recent messages
+        state["messages"] = messages[-MAX_HISTORY:]
+    return state

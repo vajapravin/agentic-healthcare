@@ -14,7 +14,7 @@ def appointment_node(state: dict) -> dict:
     
     system_prompt_text = load_prompt("appointment.md")
     messages = state.get("messages", [])
-    
+
     invocation_messages = [SystemMessage(content=system_prompt_text)] + messages
     
     # Invoke the LLM

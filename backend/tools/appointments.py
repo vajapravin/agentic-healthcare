@@ -7,15 +7,20 @@ from core.models.appointment import Appointment
 @tool
 def book_appointment(patient_id: int, department: str, scheduled_time: str) -> str:
     """
-    Books an appointment for a patient in a specific hospital department.
-    All fields are mandatory. The patient_id must correspond to an existing patient in the database.
-    The scheduled_time must be in 'YYYY-MM-DD HH:MM:SS' format.
+        Books an appointment for a patient in a specific hospital department.
+        All fields are mandatory. The patient_id must correspond to an existing patient in the database.
+        The scheduled_time must be in 'YYYY-MM-DD HH:MM:SS' format.
+        
+        CRITICAL CONFLICT RULES:
+        1. A patient cannot have multiple appointments in the same department.
+        2. A patient cannot have overlapping time conflicts (two appointments at the exact same scheduled_time across any department).
+        3. The department cannot be double-booked at the requested scheduled_time by any other patient.
 
-    Args:
-        patient_id (int): The ID of the patient for whom to book the appointment (Mandatory).
-        department (str): The hospital department for the appointment (Mandatory).
-        scheduled_time (str): The time for the appointment in 'YYYY-MM-DD HH:MM:SS' format (Mandatory). scheduled_time must be in the future and not conflict with existing appointments for the same department. User must provide a valid time slot that is not already booked.
-    """
+        Args:
+            patient_id (int): The ID of the patient for whom to book the appointment (Mandatory).
+            department (str): The hospital department for the appointment (Mandatory). Must not already have an active appointment for this patient.
+            scheduled_time (str): The time for the appointment in 'YYYY-MM-DD HH:MM:SS' format (Mandatory). Must be in the future and strictly avoid time conflicts with existing department or patient bookings.
+        """
     db = SessionLocal()
     try:
         # Convert the string from the LLM into a Python datetime object
@@ -25,10 +30,9 @@ def book_appointment(patient_id: int, department: str, scheduled_time: str) -> s
         if appt_time <= datetime.now():
             return "Error: Cannot book an appointment in the past. Please choose a future time slot."
 
-        # 2. Conflict Check A: Check if the Department is already booked at this exact time
+        # 2. Conflict Check A: Check if the Department is already booked
         department_conflict = db.query(Appointment).filter(
-            Appointment.department == department,
-            Appointment.scheduled_time == appt_time
+            Appointment.department == department
         ).first()
 
         if department_conflict:
