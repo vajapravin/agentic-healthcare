@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from graph import app_graph
 from langchain_core.messages import HumanMessage
+from routers.documents import router as document_router
 
 # Import engine and the models package
 from core.db import engine
@@ -12,7 +13,8 @@ models.Base.metadata.create_all(bind=engine)
 
 # Import the compiled graph we built in the previous steps
 # Adjust the import path if your workflow.py is located elsewhere
-app = FastAPI(title="Agentic Healthcare API")
+app = FastAPI(title="Agentic Healthcare API", version="1.0.0")
+app.include_router(document_router)
 
 # Define the expected input from the frontend
 class ChatRequest(BaseModel):
