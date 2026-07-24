@@ -16,7 +16,8 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: agentcare-backend
     ports:
       - "8000:8000"
@@ -30,7 +31,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: agentcare-frontend
     ports:
       - "8501:8501"
