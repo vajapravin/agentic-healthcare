@@ -8,7 +8,13 @@ from core.models.appointment import Appointment
 def book_appointment(patient_id: int, department: str, scheduled_time: str) -> str:
     """
     Books an appointment for a patient in a specific hospital department.
+    All fields are mandatory. The patient_id must correspond to an existing patient in the database.
     The scheduled_time must be in 'YYYY-MM-DD HH:MM:SS' format.
+
+    Args:
+        patient_id (int): The ID of the patient for whom to book the appointment (Mandatory).
+        department (str): The hospital department for the appointment (Mandatory).
+        scheduled_time (str): The time for the appointment in 'YYYY-MM-DD HH:MM:SS' format (Mandatory). scheduled_time must be in the future and not conflict with existing appointments for the same department. User must provide a valid time slot that is not already booked.
     """
     # Open a dedicated database session for this tool execution
     db = SessionLocal()

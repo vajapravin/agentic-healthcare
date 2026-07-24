@@ -4,27 +4,33 @@ from core.models.patient import Patient
 from langchain_core.runnables import RunnableConfig
 
 @tool
-def register_patient(name: str, config: RunnableConfig) -> str:
+def register_patient(name: str, date_of_birth: str, config: RunnableConfig) -> str:
     """
     Registers a new patient in the database.
+    Both name and date_of_birth are mandatory fields.
     Automatically unmasks PII tokens using the graph state mapping if needed.
+    
+    Args:
+        name (str): The full legal name of the patient (Mandatory).
+        date_of_birth (str): The patient's date of birth, strictly in 'YYYY-MM-DD' format (Mandatory).
     """
     try:
+        # Validate that mandatory fields are provided and not empty
+        if not name or not name.strip() or not date_of_birth or not date_of_birth.strip():
+            return "Error registering patient: Both 'name' and 'date_of_birth' are mandatory fields and cannot be empty."
+
         # Access the graph state via LangGraph's runnable config
         configurable = config.get("configurable", {})
-        # Depending on how the state is accessed in your tool node setup,
-        # we can check if the name is a placeholder and resolve it.
         
-        resolved_name = name
+        resolved_name = name.strip()
+        resolved_dob = date_of_birth.strip()
         
-        # If the LLM passed a placeholder like <PERSON>, let's check the state
-        if "<" in name and ">" in name:
-            # LangGraph passes the current state store or we can pull it from the thread store if configured,
-            # or we can handle the unmasking right before the tool call in an agent node.
+        # If the LLM passed a placeholder like <PERSON>, handle resolution
+        if "<" in resolved_name and ">" in resolved_name:
             pass
             
         db = SessionLocal()
-        new_patient = Patient(name=resolved_name)
+        new_patient = Patient(name=resolved_name, date_of_birth=resolved_dob)
         db.add(new_patient)
         db.commit()
         db.refresh(new_patient)
@@ -32,6 +38,6 @@ def register_patient(name: str, config: RunnableConfig) -> str:
         patient_id = new_patient.id
         db.close()
         
-        return f"Successfully registered {resolved_name}. Their new Patient ID is {patient_id}."
+        return f"Successfully registered {resolved_name} (DOB: {resolved_dob}). Their new Patient ID is {patient_id}."
     except Exception as e:
         return f"Error registering patient: {str(e)}"
