@@ -1,4 +1,3 @@
-import logging
 from langchain_core.messages import SystemMessage
 from core.utils import load_prompt
 from core.llm import llm

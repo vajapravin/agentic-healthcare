@@ -1,3 +1,4 @@
+from core.document_handler import check_missing_or_duplicate_documents
 from langchain_core.tools import tool
 from core.db import SessionLocal
 from core.models.document import PatientDocument
@@ -39,16 +40,32 @@ def classify_and_store_document(patient_id: int, file_name: str, raw_text_conten
         if existing_doc:
             return f"Error: Duplicate document '{file_name}' of type '{doc_type}' already exists for patient ID {patient_id}."
 
-        # 2. Enforce Government ID mandate if uploading secondary files
-        if doc_type != "Government ID":
-            has_id_on_file = db.query(PatientDocument).filter(
-                PatientDocument.patient_id == patient_id,
-                PatientDocument.document_type == "Government ID"
-            ).first()
-            
-            if not has_id_on_file:
-                return f"Compliance Error: Cannot store {doc_type}. A valid Government ID is mandatory on file before other documents can be added for patient ID {patient_id}."
-                        
+        # 2. Utilize document_handler functions for validation
+        audit_result = check_missing_or_duplicate_documents(existing_doc, file_name)
+        
+        doc_type_slug = audit_result["classified_type"]
+        is_duplicate = audit_result["is_duplicate"]
+        missing_docs = audit_result["missing_documents"]
+
+        # Map slug back to readable database format
+        type_mapping = {
+            "insurance_card": "Insurance Card",
+            "government_id": "Government ID",
+            "medical_history": "Medical History",
+            "unknown": "General Medical Document"
+        }
+        doc_type = type_mapping.get(doc_type_slug, "General Medical Document")
+
+        # 3. Block duplicates
+        if is_duplicate:
+            db.close()
+            return f"Error: Duplicate document '{file_name}' of type '{doc_type}' already exists for patient ID {patient_id}."
+
+        # 4. Enforce Government ID mandate if missing
+        if doc_type_slug != "government_id" and "government_id" in missing_docs:
+            db.close()
+            return f"Compliance Error: Cannot store {doc_type}. A valid Government ID is mandatory on file before other documents can be added for patient ID {patient_id}."
+        
         new_doc = PatientDocument(
             patient_id=patient_id,
             document_type=doc_type,

@@ -26,16 +26,15 @@ if "messages" not in st.session_state:
         }
     ]
 
-# --- Sidebar Navigation (Thread ID removed) ---
+# --- Sidebar Navigation ---
 st.sidebar.title("🏥 AgentCare Portal")
 portal_mode = st.sidebar.radio("Select Portal", ["Patient View (Chat)", "Staff View"])
 
-# Use the automatically generated system thread ID
 thread_id = st.session_state.thread_id
 
 if portal_mode == "Patient View (Chat)":
     st.title("Patient Assistant & Booking")
-    st.markdown("Chat with the AI healthcare assistant to manage appointments and inquiries.")
+    st.markdown("Chat with the AI healthcare assistant to manage appointments, inquiries, and document uploads.")
 
     # WhatsApp Chat Container Styling
     st.markdown("""
@@ -83,6 +82,29 @@ if portal_mode == "Patient View (Chat)":
             margin-bottom: 4px;
             font-weight: 600;
         }
+        .inline-upload-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        /* Custom styling for the plus button to sit flush inside the input bar */
+        div[data-testid="stPopover"] > button {
+            border-radius: 50% !important;
+            width: 38px !important;
+            height: 38px !important;
+            padding: 0px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f0f2f6;
+            border: 1px solid #d1d5db;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            margin-top: 24px;
+        }
+        div[data-testid="stPopover"] > button:hover {
+            background-color: #e4e6eb;
+            border-color: #b0b7c3;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -107,9 +129,6 @@ if portal_mode == "Patient View (Chat)":
             </div>
         """, unsafe_allow_html=True)
         
-        # Show the button on the last assistant message ONLY if:
-        # 1. We are not currently processing an API call.
-        # 2. There is more than just the initial welcome message (i.e., chat has progressed).
         if (
             idx == last_assistant_index 
             and not st.session_state.is_processing 
@@ -128,12 +147,55 @@ if portal_mode == "Patient View (Chat)":
                 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Chat Input Box (disabled or hidden during processing if desired, or handled via standard flow)
-    if prompt := st.chat_input("Type your message here...", disabled=st.session_state.is_processing):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        # Set processing flag to True to hide the reset button during API call
-        st.session_state.is_processing = True
-        st.rerun()
+    # --- Integrated Input Area: [+] Upload Button side-by-side with Chat Input ---
+    input_col1, input_col2 = st.columns([0.06, 0.94])
+
+    with input_col1:
+        # Plus button that opens a popover form for document uploading
+        with st.popover("➕", help="Upload a document"):
+            st.markdown("### Upload Document")
+            with st.form("doc_upload_form"):
+                form_patient_id = st.number_input("Patient ID", min_value=1, step=1, format="%d")
+                form_doc_type = st.selectbox(
+                    "Document Type", 
+                    ["Government ID", "Insurance Card", "Medical History", "Intake Form"]
+                )
+                form_file = st.file_uploader("Select File", type=["pdf", "png", "jpg", "jpeg", "txt"])
+                
+                submit_doc = st.form_submit_button("Submit Document")
+                
+                if submit_doc:
+                    if form_file is not None and form_patient_id:
+                        with st.spinner("Uploading and classifying document..."):
+                            try:
+                                files = {"file": (form_file.name, form_file.getvalue(), form_file.type)}
+                                data = {
+                                    "patient_id": str(form_patient_id),
+                                    "document_type": form_doc_type
+                                }
+                                res = requests.post(f"{API_URL}/documents/upload", files=files, data=data)
+                                
+                                if res.status_code == 200:
+                                    res_json = res.json()
+                                    st.success(f"Success! Classified as: {res_json.get('document_type')}")
+                                    # Append a system chat notification so the history reflects the action
+                                    st.session_state.messages.append({
+                                        "role": "assistant", 
+                                        "content": f"📁 Document uploaded successfully for Patient ID {form_patient_id} (Type: {res_json.get('document_type')}, File: {form_file.name})."
+                                    })
+                                    st.rerun()
+                                else:
+                                    st.error(f"Upload failed: {res.text}")
+                            except Exception as e:
+                                st.error(f"Connection error: {e}")
+                    else:
+                        st.warning("Please provide Patient ID and select a file.")
+
+    with input_col2:
+        if prompt := st.chat_input("Type your message here...", disabled=st.session_state.is_processing):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            st.session_state.is_processing = True
+            st.rerun()
 
     # Process backend response if the last message is from the user and we are in processing mode
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user" and st.session_state.is_processing:
@@ -157,12 +219,12 @@ if portal_mode == "Patient View (Chat)":
             except Exception as e:
                 bot_reply = f"Could not connect to backend: {e}"
                 
-            # Append response and toggle processing flag back to False to reveal the button again
             st.session_state.messages.append({"role": "assistant", "content": bot_reply})
             st.session_state.is_processing = False
             st.rerun()
 
 elif portal_mode == "Staff View":
+    # (Staff view code remains unchanged)
     st.title("Staff & Administration Dashboard")
     st.markdown("View active patient requests, appointments, and handle escalations.")
     
