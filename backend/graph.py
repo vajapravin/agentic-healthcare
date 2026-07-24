@@ -8,7 +8,7 @@ from agents.routing import route_next_step
 from agents.appointment import appointment_node
 from agents.document import document_node
 from agents.intake import intake_node
-from tools.appointments import book_appointment, fetch_available_slots, cancel_appointment, reschedule_appointment
+from tools.appointments import book_appointment, fetch_available_slots, cancel_appointment, reschedule_appointment, list_patient_appointments
 from tools.documents import classify_and_store_document, extract_document_metadata, update_patient_record, audit_required_forms
 from tools.patients import register_patient
 
@@ -25,6 +25,7 @@ workflow.add_node("tools", ToolNode([
     fetch_available_slots, 
     cancel_appointment, 
     reschedule_appointment, 
+    list_patient_appointments,
     register_patient,
     classify_and_store_document,
     extract_document_metadata,

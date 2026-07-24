@@ -64,6 +64,7 @@ if portal_mode == "Patient View (Chat)":
             line-height: 1.5;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             word-wrap: break-word;
+            margin: 10px;
         }
         .msg-row.user .bubble {
             background-color: #dcf8c6;

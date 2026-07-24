@@ -16,36 +16,54 @@ def book_appointment(patient_id: int, department: str, scheduled_time: str) -> s
         department (str): The hospital department for the appointment (Mandatory).
         scheduled_time (str): The time for the appointment in 'YYYY-MM-DD HH:MM:SS' format (Mandatory). scheduled_time must be in the future and not conflict with existing appointments for the same department. User must provide a valid time slot that is not already booked.
     """
-    # Open a dedicated database session for this tool execution
     db = SessionLocal()
     try:
         # Convert the string from the LLM into a Python datetime object
         appt_time = datetime.strptime(scheduled_time, '%Y-%m-%d %H:%M:%S')
 
-        # Create a new appointment instance
+        # 1. Validation: Ensure appointment is in the future
+        if appt_time <= datetime.now():
+            return "Error: Cannot book an appointment in the past. Please choose a future time slot."
+
+        # 2. Conflict Check A: Check if the Department is already booked at this exact time
+        department_conflict = db.query(Appointment).filter(
+            Appointment.department == department,
+            Appointment.scheduled_time == appt_time
+        ).first()
+
+        if department_conflict:
+            return f"Conflict Error: The {department} department is already booked at {scheduled_time}. Please choose another slot."
+
+        # 3. Conflict Check B: Check if the Patient already has an appointment anywhere at this exact time
+        patient_conflict = db.query(Appointment).filter(
+            Appointment.patient_id == patient_id,
+            Appointment.scheduled_time == appt_time
+        ).first()
+
+        if patient_conflict:
+            return f"Conflict Error: Patient ID {patient_id} already has an appointment booked in the '{patient_conflict.department}' department at {scheduled_time}, Appointment ID: {patient_conflict.id}."
+
+        # 4. Create and commit the new appointment if no conflicts exist
         new_appointment = Appointment(
             patient_id=patient_id,
             department=department,
             scheduled_time=appt_time
         )
 
-        # Add the new appointment to the database
         db.add(new_appointment)
         db.commit()
         db.refresh(new_appointment)
 
-        return f"Success: Appointment booked #{new_appointment.id} booked in {department} at {scheduled_time}."
+        return f"Success: Appointment #{new_appointment.id} booked in {department} at {scheduled_time}."
 
     except ValueError:
         return "Error: Invalid time format. Please use 'YYYY-MM-DD HH:MM:SS'."
     except Exception as e:
         db.rollback()
         error_msg = f"Error booking appointment: {str(e)}"
-        # Add this print statement to expose the error in Docker logs
         print(f"\n--- DATABASE ERROR --- \n{error_msg}\n----------------------\n")
         return error_msg
     finally:
-        # Always close the connection to prevent database lockups
         db.close()
 
 @tool
@@ -55,12 +73,9 @@ def fetch_available_slots(department: str, date: str) -> str:
     Date MUST be in YYYY-MM-DD format.
     """
     try:
-        # 1. Parse the date string into a Python date object
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
-        
         db = SessionLocal()
         
-        # 2. Query Supabase for all appointments in this department on this specific day
         booked_appointments = db.query(Appointment.scheduled_time).filter(
             Appointment.department == department,
             cast(Appointment.scheduled_time, Date) == target_date
@@ -68,23 +83,18 @@ def fetch_available_slots(department: str, date: str) -> str:
         
         db.close()
 
-        # Extract just the datetime objects from the SQL result
-        print(f"Booked appointments for {department} on {date}: {booked_appointments}")
         booked_times = [app[0] for app in booked_appointments if app[0] is not None]
 
-        # 3. Generate standard hourly slots (9:00 AM to 4:00 PM)
         available_slots = []
         for hour in range(9, 17):
             slot_time = datetime.combine(target_date, datetime.min.time()) + timedelta(hours=hour)
             
-            # If this time isn't in the database, it is available
             if slot_time not in booked_times:
                 available_slots.append(slot_time.strftime("%Y-%m-%d %H:%M:%S"))
 
         if not available_slots:
             return f"No available slots for {department} on {date}."
 
-        # 4. Return the next 3 available slots to keep the LLM response concise
         return f"Available slots for {department} on {date}: " + ", ".join(available_slots[:3])
 
     except ValueError:
@@ -103,7 +113,6 @@ def cancel_appointment(patient_id: int, department: str, date: str) -> str:
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
         db = SessionLocal()
         
-        # Find the specific appointment
         appointment = db.query(Appointment).filter(
             Appointment.patient_id == patient_id,
             Appointment.department == department,
@@ -114,7 +123,6 @@ def cancel_appointment(patient_id: int, department: str, date: str) -> str:
             db.close()
             return f"No appointment found for Patient ID {patient_id} in {department} on {date}."
         
-        # Delete the appointment
         db.delete(appointment)
         db.commit()
         db.close()
@@ -129,8 +137,7 @@ def cancel_appointment(patient_id: int, department: str, date: str) -> str:
 @tool
 def reschedule_appointment(appointment_id: int, new_slot: str) -> str:
     """
-    Directly updates an existing appointment to a new date and time. 
-    Use this immediately when a user asks to reschedule, without checking available slots.
+    Directly updates an existing appointment to a new date and time after checking conflicts. 
     """
     db = SessionLocal()
     try:
@@ -138,13 +145,59 @@ def reschedule_appointment(appointment_id: int, new_slot: str) -> str:
         if not appointment:
             return f"Error: No appointment found with ID {appointment_id}."
         
-        # Parse and update
-        appointment.appointment_time = datetime.fromisoformat(new_slot)
+        new_time = datetime.strptime(new_slot, '%Y-%m-%d %H:%M:%S')
+
+        # Check department conflict for the new slot (excluding the current appointment itself)
+        dept_conflict = db.query(Appointment).filter(
+            Appointment.department == appointment.department,
+            Appointment.scheduled_time == new_time,
+            Appointment.id != appointment_id
+        ).first()
+
+        if dept_conflict:
+            return f"Conflict Error: The {appointment.department} department is already booked at {new_slot}."
+
+        # Update and save
+        appointment.scheduled_time = new_time
         db.commit()
         
         return f"Successfully rescheduled appointment ID {appointment_id} to {new_slot}."
+    except ValueError:
+        return "Error: Invalid time format. Please use 'YYYY-MM-DD HH:MM:SS'."
     except Exception as e:
         db.rollback()
         return f"Error rescheduling appointment: {str(e)}"
+    finally:
+        db.close()
+
+@tool
+def list_patient_appointments(patient_id: int) -> str:
+    """
+    Retrieves all active scheduled appointments for a specific patient.
+    
+    Args:
+        patient_id (int): The ID of the patient whose appointments to list (Mandatory).
+    """
+    db = SessionLocal()
+    try:
+        # Query all appointments for the given patient ID, ordered by time
+        appointments = db.query(Appointment).filter(
+            Appointment.patient_id == patient_id
+        ).order_by(Appointment.scheduled_time.asc()).all()
+        
+        if not appointments:
+            return f"No active appointments found for Patient ID {patient_id}."
+            
+        # Format the results into a clean, readable string for the agent/user
+        appt_list = []
+        for appt in appointments:
+            time_str = appt.scheduled_time.strftime('%Y-%m-%d %H:%M:%S') if appt.scheduled_time else "Unscheduled"
+            appt_list.append(f"- ID: {appt.id} | Department: {appt.department} | Time: {time_str}")
+            
+        return f"Active appointments for Patient ID {patient_id}:\n" + "\n".join(appt_list)
+        
+    except Exception as e:
+        print(f"\n--- DATABASE ERROR --- \n{str(e)}\n----------------------\n")
+        return f"Error retrieving patient appointments: {str(e)}"
     finally:
         db.close()
