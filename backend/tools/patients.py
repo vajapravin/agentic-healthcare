@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from langchain_core.tools import tool
 from core.db import SessionLocal
 from core.models.user import User
@@ -13,11 +14,10 @@ def register_patient(name: str, date_of_birth: str, phone: str = None, emergency
     
     STRICT VALIDATION RULES:
     1. The name MUST be a valid human full name (e.g., 'Rakesh Bahl', 'Jane Doe'). 
-    2. NEVER accept or pass generic placeholders, ID numbers, or strings like 'patient 119', 'user', or numbers as the patient's name. If the user provides a placeholder or ID instead of a real name, ask them to provide their actual full legal name before calling this tool.
-    3. Automatically unmasks PII placeholder tokens (e.g., '<PERSON_1>') using the graph state mapping if the name was scrubbed by the safety node.
+    2. NEVER accept or pass generic placeholders, ID numbers, or strings like 'patient 119', 'user', or numbers as the patient's name.
     
     Args:
-        name (str): The valid full legal human name of the patient (Mandatory). Must never be an ID or placeholder string.
+        name (str): The valid full legal human name of the patient (Mandatory).
         date_of_birth (str): The patient's date of birth, strictly in 'YYYY-MM-DD' format (Mandatory).
         phone (str): The patient's phone number (Optional).
         emergency_contact (str): The emergency contact details (Optional).
@@ -26,13 +26,11 @@ def register_patient(name: str, date_of_birth: str, phone: str = None, emergency
     try:
         cleaned_name = name.strip()
         if re.search(r'(patient|user|client)\s*\d+', cleaned_name, re.IGNORECASE) or cleaned_name.isdigit():
-            return f"Error: '{name}' is not a valid human name. Please provide the patient's actual full legal name (e.g., first and last name) before registering."
+            return f"Error: '{name}' is not a valid human name. Please provide the patient's actual full legal name."
 
-        # 2. Basic name format check
         if len(cleaned_name.split()) < 2 and not any(char.isalpha() for char in cleaned_name):
             return f"Error: '{name}' appears to be invalid. Please provide a full legal name containing letters."
         
-        # Validate mandatory fields
         if not name or not name.strip() or not date_of_birth or not date_of_birth.strip():
             return "Error registering patient: Both 'name' and 'date_of_birth' are mandatory fields and cannot be empty."
 
@@ -43,16 +41,16 @@ def register_patient(name: str, date_of_birth: str, phone: str = None, emergency
         email_slug = re.sub(r'[^a-z0-9]', '', resolved_name.lower())
         unique_email = f"{email_slug}_{int(datetime.utcnow().timestamp())}@patient.agentcare.local"
 
-        # 1. Create User record first (since PatientProfile requires user_id)
+        # 1. Create User record
         new_user = User(
             name=resolved_name,
             email=unique_email,
             role="patient"
         )
         db.add(new_user)
-        db.flush() # Flushes to generate new_user.id without committing full transaction yet
+        db.flush()
 
-        # 2. Create PatientProfile linked to the new User
+        # 2. Create PatientProfile linked to User
         new_profile = PatientProfile(
             user_id=new_user.id,
             date_of_birth=resolved_dob,

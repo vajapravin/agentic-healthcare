@@ -18,21 +18,21 @@ workflow = StateGraph(AgentState)
 # Add Nodes
 workflow.add_node("safety_agent", safety_node)
 workflow.add_node("coordinator", coordinator_node)
-# workflow.add_node("appointment_agent", appointment_node)
-# workflow.add_node("intake_agent", intake_node)
-# workflow.add_node("tools", ToolNode([
-#     book_appointment, 
-#     fetch_available_slots, 
-#     cancel_appointment, 
-#     reschedule_appointment, 
-#     list_patient_appointments,
-#     register_patient,
-#     classify_and_store_document,
-#     extract_document_metadata,
-#     update_patient_record,
-#     audit_required_forms
-# ]))
-# workflow.add_node("document_agent", document_node)
+workflow.add_node("appointment_agent", appointment_node)
+workflow.add_node("intake_agent", intake_node)
+workflow.add_node("tools", ToolNode([
+    book_appointment, 
+    fetch_available_slots, 
+    cancel_appointment, 
+    reschedule_appointment, 
+    list_patient_appointments,
+    register_patient,
+    classify_and_store_document,
+    extract_document_metadata,
+    update_patient_record,
+    audit_required_forms
+]))
+workflow.add_node("document_agent", document_node)
 
 # Set the entry point
 workflow.set_entry_point("safety_agent")
@@ -41,17 +41,17 @@ workflow.add_edge("safety_agent", "coordinator")
 
 # Add Conditional Edges from the Coordinator
 # FIXED: Added intake_agent to the routing map
-# workflow.add_conditional_edges(
-#     "coordinator",
-#     route_next_step,
-#     {
-#         "appointment_agent": "appointment_agent",
-#         "intake_agent": "intake_agent",
-#         "document_agent": "document_agent",
-#         "safety_agent": "safety_agent",
-#         "end": END
-#     }
-# )
+workflow.add_conditional_edges(
+    "coordinator",
+    route_next_step,
+    {
+        "appointment_agent": "appointment_agent",
+        "intake_agent": "intake_agent",
+        "document_agent": "document_agent",
+        "safety_agent": "safety_agent",
+        "end": END
+    }
+)
 
 def route_tool_return(state: dict):
     """Routes the graph back to the agent that called the tool."""
@@ -74,29 +74,29 @@ def route_tool_return(state: dict):
 # Add the Document Agent node (passing the bound llm or handling it inside the node)
 
 # Route from agents TO the tools
-# workflow.add_conditional_edges(
-#     "intake_agent",
-#     tools_condition,
-#     {"tools": "tools", "__end__": END}
-# )
+workflow.add_conditional_edges(
+    "intake_agent",
+    tools_condition,
+    {"tools": "tools", "__end__": END}
+)
 
-# workflow.add_conditional_edges(
-#     "appointment_agent",
-#     tools_condition,
-#     {"tools": "tools", "__end__": END}
-# )
+workflow.add_conditional_edges(
+    "appointment_agent",
+    tools_condition,
+    {"tools": "tools", "__end__": END}
+)
 
 # # Route from tools BACK to the correct agent
-# workflow.add_conditional_edges(
-#     "tools",
-#     route_tool_return
-# )
+workflow.add_conditional_edges(
+    "tools",
+    route_tool_return
+)
 
-# workflow.add_conditional_edges(
-#     "document_agent",
-#     tools_condition,
-#     {"tools": "tools", "__end__": END}
-# )
+workflow.add_conditional_edges(
+    "document_agent",
+    tools_condition,
+    {"tools": "tools", "__end__": END}
+)
 
 # FIXED: Deleted the two static add_edge("tools", ...) lines from here.
 

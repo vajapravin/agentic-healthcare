@@ -20,5 +20,5 @@ def document_node(state: dict) -> dict:
     
     return {
         "messages": [response],
-        "current_task": "document_handling"
+        "current_task": "document_coordination_handled"
     }
