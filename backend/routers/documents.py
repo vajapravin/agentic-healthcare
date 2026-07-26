@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from core.db import SessionLocal
-from core.models.document import PatientDocument
+from core.models.patient_document import PatientDocument
 from datetime import datetime
 
 router = APIRouter(prefix="/documents", tags=["Documents"])

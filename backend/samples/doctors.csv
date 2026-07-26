@@ -1,0 +1,21 @@
+id,department_id,name,active
+1,1,Dr. Robert Smith,true
+2,1,Dr. Emily Davis,true
+3,1,Dr. Michael Johnson,true
+4,1,Dr. Sarah Wilson,true
+5,2,Dr. Jessica Brown,true
+6,2,Dr. David Miller,true
+7,2,Dr. Amanda Taylor,true
+8,2,Dr. James Anderson,true
+9,3,Dr. William Thomas,true
+10,3,Dr. Elizabeth Jackson,true
+11,3,Dr. Daniel White,true
+12,3,Dr. Margaret Harris,true
+13,4,Dr. Joseph Martin,true
+14,4,Dr. Lisa Thompson,true
+15,4,Dr. Charles Garcia,true
+16,4,Dr. Nancy Martinez,true
+17,5,Dr. Anthony Robinson,true
+18,5,Dr. Karen Clark,true
+19,5,Dr. Steven Rodriguez,true
+20,5,Dr. Betty Lewis,true

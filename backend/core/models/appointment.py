@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, JSON
 from sqlalchemy.orm import relationship
 from core.db import Base
 from datetime import datetime
@@ -7,11 +7,16 @@ class Appointment(Base):
     __tablename__ = "appointments"
 
     id = Column(Integer, primary_key=True, index=True)
-    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
-    department = Column(String, index=True)
-    scheduled_time = Column(DateTime)
-    status = Column(String, default="booked")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    patient_id = Column(Integer, ForeignKey("patient_profiles.id"), nullable=False)
+    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=True)
+    slot_id = Column(Integer, ForeignKey("appointment_slots.id"), nullable=True, unique=True)
+    status = Column(String, default="booked", nullable=False)
+    reason = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    # Relationship to the Patient model
-    patient = relationship("Patient", back_populates="appointments")
+    # Relationships
+    patient = relationship("PatientProfile", back_populates="appointments")
+    doctor = relationship("Doctor", back_populates="appointments")
+    slot = relationship("AppointmentSlot", back_populates="appointment")
+    reminders = relationship("Reminder", back_populates="appointment")

@@ -1,7 +1,7 @@
 from core.document_handler import check_missing_or_duplicate_documents
 from langchain_core.tools import tool
 from core.db import SessionLocal
-from core.models.document import PatientDocument
+from core.models.patient_document import PatientDocument
 from langchain_core.runnables import RunnableConfig
 
 @tool
