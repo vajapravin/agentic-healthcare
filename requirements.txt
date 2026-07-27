@@ -14,3 +14,4 @@ spacy>=3.8.14
 streamlit>=1.59.2
 grandalf>=0.8
 pyfiglet>=1.0.4
+ddtrace>=4.12.0

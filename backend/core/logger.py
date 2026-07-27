@@ -1,7 +1,6 @@
 import logging
 import sys
 import inspect
-
 class LogColors:
     RESET = "\033[0m"
     BOLD = "\033[1m"

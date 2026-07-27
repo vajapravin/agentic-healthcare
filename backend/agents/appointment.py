@@ -1,3 +1,4 @@
+import inspect
 from langchain_core.messages import SystemMessage
 from core.utils import load_prompt
 from core.llm import llm
@@ -21,7 +22,8 @@ appointment_llm = llm.bind_tools(appointment_tools)
 
 # 2. Define the exact function name expected by graph.py
 def appointment_node(state: dict) -> dict:
-    print("--- EXEC: Appointment Agent ---")
+    print(f"{'#'*50}{__file__}#appointment_node:{inspect.currentframe().f_lineno}: {locals()}")
+    print("\n--- BEGIN: Appointment Node ---")
     
     system_prompt_text = load_prompt("appointment.md")
     messages = state.get("messages", [])
@@ -30,8 +32,13 @@ def appointment_node(state: dict) -> dict:
     
     # Invoke the LLM
     response = appointment_llm.invoke(invocation_messages)
-    
-    return {
+
+    return_args = {
         "messages": [response],
         "current_task": "appointment_handled"
     }
+
+    print(f"return: {return_args}")
+    print("--- END: Appointment Node ---\n")
+    
+    return return_args

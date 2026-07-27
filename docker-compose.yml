@@ -4,13 +4,28 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     container_name: agentcare-backend
+    environment:
+      - DD_AGENT_HOST=dd-agent
+      - DD_TRACE_AGENT_PORT=8126
     ports:
       - "8000:8000"
     env_file:
       - .env
     volumes:
       - ./backend:/app  # Enables hot-reloading during development
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: ddtrace-run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - app-net
+
+  dd-agent:
+    image: registry.datadoghq.com/agent:7
+    container_name: dd-agent
+    env_file:
+      - .env
+    ports:
+      - "8126:8126"
+    networks:
+      - app-net
 
   frontend:
     build:
@@ -29,3 +44,9 @@ services:
       - ./frontend:/app # Enables hot-reloading during development
     # command: streamlit run app.py --server.port=8501 --server.address=0.0.0.0
     command: python -m streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge
