@@ -52,7 +52,7 @@ workflow.add_conditional_edges(
         "intake_agent": "intake_agent",
         "document_agent": "document_agent",
         "safety_agent": "safety_agent",
-        "end": END
+        END: END
     }
 )
 

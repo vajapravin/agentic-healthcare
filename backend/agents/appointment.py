@@ -1,5 +1,5 @@
 import inspect
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, AIMessage
 from core.utils import load_prompt
 from core.llm import llm
 from tools.appointments import (
@@ -35,7 +35,7 @@ def appointment_node(state: dict) -> dict:
 
     return_args = {
         "messages": [response],
-        "current_task": "appointment_handled"
+        "current_task": "intake_agent"
     }
 
     print(f"return: {return_args}")

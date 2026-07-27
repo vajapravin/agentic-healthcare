@@ -120,14 +120,24 @@ if portal_mode == "Patient View (Chat)":
         role_class = "user" if message["role"] == "user" else "system"
         avatar = "👤 You" if message["role"] == "user" else "🤖 System"
         
-        st.markdown(f"""
-            <div class="msg-row {role_class}">
-                <div class="bubble">
-                    <div class="sender-label">{avatar}</div>
-                    {message["content"]}
+        # Check if message is a flagged empty response error placeholder
+        if message.get("is_empty_error"):
+            st.warning("⚠️ The assistant returned an empty response due to a model error.")
+            retry_key = f"retry_btn_{idx}"
+            if st.button("🔄 Retry Last Message", key=retry_key):
+                # Remove the empty error placeholder message
+                st.session_state.messages.pop(idx)
+                st.session_state.is_processing = True
+                st.rerun()
+        else:
+            st.markdown(f"""
+                <div class="msg-row {role_class}">
+                    <div class="bubble">
+                        <div class="sender-label">{avatar}</div>
+                        {message["content"]}
+                    </div>
                 </div>
-            </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
         
         if (
             idx == last_assistant_index 
@@ -211,7 +221,7 @@ if portal_mode == "Patient View (Chat)":
                     if isinstance(data, dict):
                         data.pop("current_task", None)
                         data.pop("thread_id", None)
-                        bot_reply = data.get("response") or data.get("message") or str(data)
+                        bot_reply = data.get("response") if data.get("response") is not None else (data.get("message") if data.get("message") is not None else str(data))
                     else:
                         bot_reply = str(data)
                 else:
