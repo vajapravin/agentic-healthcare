@@ -4,3 +4,4 @@ id,name,description,active
 3,Orthopedics,Focuses on injuries and diseases of the bodys musculoskeletal system.,true
 4,Neurology,Deals with disorders of the nervous system including the brain and spinal cord.,true
 5,Dermatology,Focuses on the medical and surgical treatment of skin hair and nail disorders.,true
+6,General,"Focuses on acute, self-limiting and short-term illnesses using targeted medications.",true

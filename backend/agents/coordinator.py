@@ -1,14 +1,13 @@
-import os
+import inspect
 from typing import Literal
 from pydantic import BaseModel, Field
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, AIMessage
 
 from core.llm import llm
 from core.utils import load_prompt  # Importing the shared utility
 
 # 1. Define the Strict Output Schema using Pydantic
-class CoordinatorOutput(BaseModel):
+class CoordinatorOutput(BaseModel):    
     message_to_user: str = Field(
         description="The conversational response or clarifying question to show the user."
     )
@@ -23,14 +22,13 @@ class CoordinatorOutput(BaseModel):
         description="The precise name of the next agent to route to. Choose 'end' if the workflow is complete or waiting for user input."
     )
 
-structured_llm = llm.with_structured_output(CoordinatorOutput)
-
 def coordinator_node(state: dict) -> dict:
     """
     The main orchestrator node. 
     It reads the state, consults the system prompt, and generates a response.
     """
-    print("--- EXEC: Coordinator Node ---")
+    print(f"{'#'*50}{__file__}#coordinator_node:{inspect.currentframe().f_lineno}: {locals()}")
+    print("\n--- BEGIN: Coordinator Node ---")
     
     # 1. Load the explicit instructions for this agent
     system_prompt_text = load_prompt("coordinator.md")
@@ -43,6 +41,7 @@ def coordinator_node(state: dict) -> dict:
     # followed by the entire user/assistant chat history.
     invocation_messages = [SystemMessage(content=system_prompt_text)] + messages
 
+    structured_llm = llm.with_structured_output(CoordinatorOutput)
     output: CoordinatorOutput = structured_llm.invoke(invocation_messages)
 
     # 4. Invoke the LLM
@@ -51,7 +50,13 @@ def coordinator_node(state: dict) -> dict:
     # 5. Return the state update
     # Because of our reducer in state.py (Annotated[list, add_messages]),
     # returning a dict with "messages" will append this new response to the history.
-    return {
+
+    return_args = {
         "messages": [ai_response],
         "current_task": output.next_node  # Update the current task for routing
     }
+
+    print(f"return: {return_args}")
+    print("--- END: Coordinator Node ---\n")
+
+    return return_args

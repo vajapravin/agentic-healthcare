@@ -1,80 +1,65 @@
 import re
-from langchain_core.prompts import ChatPromptTemplate
+import inspect
+from rich import inspect
 from core.llm import llm
 from core.db import SessionLocal
 from core.models.department import Department
-
-def get_routing_prompt():
-    return ChatPromptTemplate.from_messages([
-        ("system", """You are the Routing Agent for the AgentCare platform. 
-Your task is to analyze the user's input, detect their administrative or clinical intent, and map them to the correct workflow destination.
-
-Available Departments in System:
-{departments_list}
-
-Rules:
-1. Identify if the user needs an appointment, patient intake/registration, document coordination, or safety review.
-2. You MUST wrap your final routing decision inside exact XML tags, for example: <route>appointment_agent</route>, <route>intake_agent</route>, or <route>safety_agent</route>.
-"""),
-        ("human", "{input}")
-    ])
+from core.utils import load_prompt  # Importing the shared utility
+from langchain_core.prompts import ChatPromptTemplate
 
 def routing_node(state: dict) -> dict:
     """
-    Analyzes the message and state to route the user to the correct workflow path.
+    Analyzes the message, queries departments, invokes the routing LLM,
+    parses the destination, and routes directly using LangGraph Command.
     """
-    db = SessionLocal()
-    departments = db.query(Department).filter(Department.active == True).all()
-    db.close()
+    # db = SessionLocal()
+    # departments = db.query(Department).filter(Department.active == True).all()
+    # db.close()
     
-    dept_str = "\n".join([f"- ID: {d.id} | Name: {d.name} | Description: {d.description}" for d in departments])
-    
-    prompt = get_routing_prompt().partial(departments_list=dept_str)
+    # dept_str = "\n".join([f"- ID: {d.id} | Name: {d.name} | Description: {d.description}" for d in departments])
+
+    # # 1. Load instructions from routing.md
+    # system_prompt_text = load_prompt("routing.md")
+
+    # template = ChatPromptTemplate.from_messages([
+    #     ("system", system_prompt_text),
+    #     ("placeholder", "{messages}")
+    # ])
     
     messages = state.get("messages", [])
-    latest_input = messages[-1].content if messages else ""
-    
-    chain = prompt | llm
-    response = chain.invoke({"input": latest_input})
-    
-    # Append or track routing output in state while preserving chat flow
-    return {
-        "current_task": "routing_complete",
-        "last_routing_decision": response.content
-    }
+    lower_text = messages[-1].content.lower() if messages else ""
 
-def route_next_step(state: dict) -> str:
-    """
-    Parses the last message from the Coordinator.
-    Attempts to find an XML tag, but falls back to keyword matching 
-    if the LLM is being conversational.
-    """
-    messages = state.get("messages", [])
-    if not messages:
-        return "end"
-    
-    # Grab the text and convert to lowercase to avoid case-sensitivity bugs
-    last_message = messages[-1].content.lower()
+    # formatted_prompt = template.invoke({
+    #     "departments_list": dept_str,
+    #     "input": latest_input
+    # })
 
-    print(f"--- route_next_step::LAST MESSAGE: {last_message} ---")
+    # # 2. Invoke LLM
+    # response = llm.invoke(formatted_prompt)
+    # response_text = response.content
+    # lower_text = response_text.lower()
+
+    # print(f"--- LLM Response: {response_text} ---")
+
+    # 3. Parse destination inline (similar to your route_next_step logic)
+    destination = state["current_task"]  # default fallback
     
-    # ATTEMPT 1: Strict XML Tag Extraction
-    match = re.search(r"<route>(.*?)</route>", last_message)
+    # Attempt XML Tag Extraction
+    match = re.search(r"<route>(.*?)</route>", lower_text)
     if match:
-        destination = match.group(1).strip()
-        print(f"--- ROUTING: Extracted route -> {destination} ---")
-        if destination in ["appointment_agent", "intake_agent", "safety_agent"]:
-            return destination
-            
-    # ATTEMPT 2: Fallback Keyword Matching on the string (using last_message)
-    if "appointment" in last_message:
-        destination = "appointment_agent"
-    elif "intake" in last_message or "register" in last_message or "patient" in last_message:
-        destination = "intake_agent"
-    elif "emergency" in last_message or "safety" in last_message:
-        destination = "safety_agent"
+        extracted = match.group(1).strip()
+        if extracted in ["appointment_agent", "intake_agent", "safety_agent", "document_agent"]:
+            destination = extracted
     else:
-        destination = "end"
+        # Fallback keyword matching
+        if "appointment" in lower_text:
+            destination = "appointment_agent"
+        elif "intake" in lower_text or "register" in lower_text or "patient" in lower_text:
+            destination = "intake_agent"
+        elif "document" in lower_text or "upload" in lower_text:
+            destination = "document_agent"
+        elif "emergency" in lower_text or "safety" in lower_text:
+            destination = "safety_agent"
         
     print(f"--- ROUTING FINAL DECISION: '{destination}' ---")
     return destination

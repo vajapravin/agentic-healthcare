@@ -13,5 +13,4 @@ class Doctor(Base):
 
     # Relationships
     department = relationship("Department", back_populates="doctors")
-    slots = relationship("AppointmentSlot", back_populates="doctor")
     appointments = relationship("Appointment", back_populates="doctor")

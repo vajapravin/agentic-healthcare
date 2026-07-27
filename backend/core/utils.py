@@ -1,4 +1,5 @@
 import os
+import pyfiglet
 
 # Keep only the last 6 messages to prevent token explosion
 MAX_HISTORY = 6
@@ -24,3 +25,18 @@ def trim_messages(state: dict):
         # Keep system message if present, plus the most recent messages
         state["messages"] = messages[-MAX_HISTORY:]
     return state
+
+def print_startup_banner():
+    # Generate large ASCII text using standard slant font
+    ascii_art = pyfiglet.figlet_format("Agentic HealthCare", font="slant")
+    
+    # ANSI Color Code: Bright Cyan / Blue
+    cyan_color = "\033[96m"
+    bold = "\033[1m"
+    reset = "\033[0m"
+    
+    border = "=" * 60
+    print(f"\n{cyan_color}{bold}{border}")
+    print(ascii_art)
+    print(f"Server is up and running successfully!")
+    print(f"{border}{reset}\n")

@@ -9,7 +9,8 @@ class Appointment(Base):
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patient_profiles.id"), nullable=False)
     doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=True)
-    slot_id = Column(Integer, ForeignKey("appointment_slots.id"), nullable=True, unique=True)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
     status = Column(String, default="booked", nullable=False)
     reason = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -18,5 +19,4 @@ class Appointment(Base):
     # Relationships
     patient = relationship("PatientProfile", back_populates="appointments")
     doctor = relationship("Doctor", back_populates="appointments")
-    slot = relationship("AppointmentSlot", back_populates="appointment")
     reminders = relationship("Reminder", back_populates="appointment")

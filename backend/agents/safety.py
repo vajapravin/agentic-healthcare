@@ -1,11 +1,16 @@
+import inspect
 from presidio_analyzer import AnalyzerEngine
-from langchain_core.messages import HumanMessage
+from presidio_anonymizer import AnonymizerEngine
+from langchain_core.messages import HumanMessage, AIMessage
 
 analyzer = AnalyzerEngine()
+anonymizer = AnonymizerEngine()
 
 EMERGENCY_KEYWORDS = ["chest pain", "suicide", "bleed", "emergency", "unconscious", "severe allergic reaction"]
 
 def safety_node(state: dict):
+    print(f"{'#'*50}{__file__}#safety_node:{inspect.currentframe().f_lineno}: {locals()}")
+
     messages = state.get("messages", [])
     if not messages:
         return {"messages": messages}
@@ -13,68 +18,51 @@ def safety_node(state: dict):
     last_message = messages[-1]
     pii_mapping = state.get("pii_mapping", {})
     
+    # Only scan human messages for PII and emergencies
     if hasattr(last_message, 'content') and last_message.type == "human":
         original_text = last_message.content
+        lower_text = original_text.lower()
         
-        # 1. Analyze for PII
-        results = analyzer.analyze(
+        # 1. Check for emergency keywords
+        is_emergency = any(keyword in lower_text for keyword in EMERGENCY_KEYWORDS)
+        if is_emergency:
+            emergency_response = AIMessage(
+                content="EMERGENCY NOTICE: It sounds like you are experiencing a medical emergency. Please call emergency services (911 or local emergency number) immediately or go to the nearest hospital."
+            )
+            return {
+                "messages": [emergency_response],
+                "current_task": "safety_agent",
+                "pii_mapping": pii_mapping
+            }
+
+        # 2. Analyze PII using Presidio
+        analysis_results = analyzer.analyze(
             text=original_text, 
             entities=["PERSON", "PHONE_NUMBER", "EMAIL_ADDRESS"], 
             language='en'
         )
         
-        # 2. Sort results by start index
-        sorted_results = sorted(results, key=lambda x: x.start)
-        merged_results = []
-        
-        # 3. Merge adjacent split name spans (e.g., merging "Rakesh" and "Bahl")
-        for current in sorted_results:
-            if merged_results and merged_results[-1].entity_type == "PERSON" and current.entity_type == "PERSON":
-                prev = merged_results[-1]
-                # If they are separated by just a space or punctuation, merge them
-                if original_text[prev.end:current.start].strip() == "":
-                    prev.end = current.end
-                    prev.score = max(prev.score, current.score)
-                    continue
-            merged_results.append(current)
+        # 3. Anonymize/Mask text if PII is found
+        if analysis_results:
+            anonymized_result = anonymizer.anonymize(
+                text=original_text,
+                analyzer_results=analysis_results
+            )
+            masked_text = anonymized_result.text
+            
+            # Create a new HumanMessage with the scrubbed text to pass down the graph
+            scrubbed_message = HumanMessage(content=masked_text, id=last_message.id)
+            
+            # Optionally update state messages list replacing or appending
+            return {
+                "messages": [scrubbed_message],
+                "current_task": "routing", # or keep normal flow
+                "pii_mapping": pii_mapping
+            }
 
-        # 4. Perform direct replacement in reverse order (highest index first) to prevent index shifting
-        scrubbed_text = original_text
-        sorted_items = sorted(merged_results, key=lambda x: x.start, reverse=True)
-        
-        entity_counters = {}
-        for item in sorted_items:
-            entity_type = item.entity_type
-            start = item.start
-            end = item.end
-            original_value = original_text[start:end]
-            
-            # Skip empty spans just in case
-            if start == end:
-                continue
-            
-            count = entity_counters.get(entity_type, 0) + 1
-            entity_counters[entity_type] = count
-            
-            placeholder = f"<{entity_type}_{count}>"
-            pii_mapping[placeholder] = original_value
-            
-            # Directly replace the exact character span
-            scrubbed_text = scrubbed_text[:start] + placeholder + scrubbed_text[end:]
-            
-        messages[-1] = HumanMessage(content=scrubbed_text)
-        
+    # Default passthrough if no changes needed
     return {
-        "messages": messages,
-        "current_task": "safety_agent",
+        "messages": [],
+        "current_task": "routing",
         "pii_mapping": pii_mapping
     }
-
-
-def check_for_escalation(text: str) -> bool:
-    lower_text = text.lower()
-    return any(keyword in lower_text for keyword in EMERGENCY_KEYWORDS)
-
-
-def create_follow_up_task(patient_id: int, task_description: str) -> str:
-    return f"Follow-up task created for Patient ID {patient_id}: '{task_description}'."
